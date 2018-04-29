@@ -62,24 +62,45 @@ def compute_energy(random_agent, current_spin, neigh_list, agents):
     return energy
 
 
+def compute_conf_neigh(agents, neigh_list, spin):
+    positive = 0
+    negative = 0
+    if spin > 0:
+        positive += 1
+    else:
+        negative += 1
+    for w in neigh_list:
+        current_neigh = w
+        if agents[current_neigh].behavior > 0:
+            positive += 1
+        else:
+            negative += 1
+    if negative > positive:
+        return -1
+    return 1
+
+
 def run_ising(agents, Temperature, time_step):
     for k in range(time_step):
         random_agent = random.randint(0, len(agents) - 1)
         its_spin = agents[random_agent].spin
+        agent_beh = agents[random_agent].behavior
         neigh_list = agents[random_agent].neigh
-        initial_energy = compute_energy(random_agent, its_spin, neigh_list, agents)
-        inverse_spin = its_spin * (-1)
-        second_energy = compute_energy(random_agent, inverse_spin, neigh_list, agents)
-        delta_energy = second_energy - initial_energy
-
-        if delta_energy <= 0:
-            agents[random_agent].UpdateSpin(inverse_spin)
-        else:
-            probability_change = exp(-delta_energy / Temperature)
-            prob_list = [probability_change, 1.0 - probability_change]
-            result = weighted_choice(prob_list)
-            if result == 0:
+        if agent_beh == 0:
+            initial_energy = compute_energy(random_agent, its_spin, neigh_list, agents)
+            inverse_spin = its_spin * (-1)
+            second_energy = compute_energy(random_agent, inverse_spin, neigh_list, agents)
+            delta_energy = second_energy - initial_energy
+            if delta_energy <= 0:
                 agents[random_agent].UpdateSpin(inverse_spin)
+            else:
+                probability_change = exp(-delta_energy / Temperature)
+                prob_list = [probability_change, 1.0 - probability_change]
+                result = weighted_choice(prob_list)
+                if result == 0:
+                    agents[random_agent].UpdateSpin(inverse_spin)
+        else:
+            agents[random_agent].UpdateSpin(compute_conf_neigh(agents, neigh_list, agents[random_agent].spin))
     mag = compute_magnetization(agents)
     return mag
 
@@ -144,7 +165,7 @@ def initiate_spin(agents, random_spin, k):
 
 
 def initiate_behavior(agents, random_behavior, k):
-    pass
+    agents[k].UpdateBehavior(random_behavior)
 
 
 def init_conf(n_agents, my_lattice, p_c):
@@ -153,7 +174,8 @@ def init_conf(n_agents, my_lattice, p_c):
         agents.append(real_node(k))
         random_spin = random.randint(0, 1)
         initiate_spin(agents, random_spin, k)
-
+        random_conf = random.choice(arange(0, 2), p=[1 - p_c, p_c])
+        initiate_behavior(agents, random_conf, k)
         agents[k].neigh = get_neighs(my_lattice, k)
     return agents
 
@@ -164,33 +186,33 @@ def plot_res(temp, magnetization):
         y=[abs(mag) for mag in magnetization],
         mode='lines+markers'
     )
-    layout = dict(title='Magnetization dynamics',
-                  xaxis=dict(title='T'),
+    layout = dict(title='Magnetization dynamics with different fractions of conformists',
+                  xaxis=dict(title='P_c'),
                   yaxis=dict(title='M'),
                   )
     data = [trace]
     fig = go.Figure(data=data, layout=layout)
     plot(fig, image_filename="test.png")
-    # image.save_as(fig, filename='temp_magnetization' + '.jpeg')
+    image.save_as(fig, filename='conf_magnetization' + '.jpeg')
 
 
 def experiment():
     n_agent = 100
-    time_step = 10000
-    n_simulations = 30
+    time_step = 1000
+    n_simulations = 20
     avg_magnetization = []
     temp = 5
     conf = []
-    for i in range(0, 11, 1):
+    for i in range(0, 101, 1):
         mag_list = []
         for w in range(n_simulations):
             my_lattice = generate_lattice_2d(n_agent)
-            agents = init_conf(n_agent, my_lattice, i/10)
-            magnetization = run_ising(agents, temp / 10, time_step)
+            agents = init_conf(n_agent, my_lattice, i / 100)
+            magnetization = run_ising(agents, temp, time_step)
             mag_list += [magnetization]
         avg_magnetization += [sum(mag_list) / len(mag_list)]
-        conf += [i / 10]
-    plot_res(temp, avg_magnetization)
+        conf += [i / 100]
+    plot_res(conf, avg_magnetization)
 
 
 def main():

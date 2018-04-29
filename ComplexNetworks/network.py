@@ -1,5 +1,9 @@
 # python 3
-# simple model of SPb subway
+# simple model of SPb subway + example graph with imitation of geometrical degree distribution
+
+from numpy.random.mtrand import geometric
+from random import shuffle
+from _collections import defaultdict
 
 import numpy as np
 import plotly.graph_objs as go
@@ -127,24 +131,40 @@ graph = {
 }
 
 
-def get_degree_distrib():
-    length_sub = [0 for i in range(6)]
+def get_degree_distrib(graph):
+    length_sub = [0 for i in range(20)]
     for i in graph.keys():
-        print(len(graph[i]))
         length_sub[len(graph[i])] += 1
     return [i/len(graph.keys()) for i in length_sub]
 
-def calculate_graph_metrics():
-    pass
 
-def plot_d_d(l):
+def graph_generator(num_nodes=5000, p=0.8):
+    stubs = []
+    for i in range(0, num_nodes):
+        degree = geometric(p)
+        stubs += [i] * degree
+    shuffle(stubs)
+    G = {}
+    for i in range(0, num_nodes):
+        G[i] = []
+    for i in range(1, len(stubs), 2):
+        G[stubs[i]].append(stubs[i - 1])
+        G[stubs[i - 1]].append(stubs[i])
+    degrees = {i: len(neighbors) for i, neighbors in G.items()}
+    dist = defaultdict(int)
+    for (vertex, degree) in degrees.items():
+        dist[degree] += 1
+    return G
+
+
+def plot_d_d(l, title = 'SPb Subway degree distribution'):
     trace = go.Scatter(
         y=np.array(l[1:]),
         x=np.array([i for i in range(1, 6)]),
         mode='markers',
     )
     layout = go.Layout(
-        title = 'SPb Subway degree distribution',
+        title = title,
         xaxis=dict(
             title='k',
             type='log',
@@ -157,11 +177,14 @@ def plot_d_d(l):
         )
     )
     fig = go.Figure(data=[trace], layout=layout)
-    image.save_as(fig, filename='subway_degree_distrib' + '.jpeg')
+    plot(fig, image_filename="test.png")
 
 
 def main():
-    plot_d_d(get_degree_distrib())
+    plot_d_d(get_degree_distrib(graph))
+    new_graph = graph_generator()
+    plot_d_d(get_degree_distrib(new_graph), 'Generated graph degree distribution')
+
 
 
 if __name__ == '__main__':
